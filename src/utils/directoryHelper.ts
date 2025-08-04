@@ -82,6 +82,6 @@ export async function readAndEnsureDataDirectory(): Promise<DirectoryStructure> 
       folders: folderStructure,
     };
   } catch (error) {
-    throw new Error(`Failed to process directory structure: ${error.message}`);
+    throw new Error(`Failed to process directory structure: ${error}`);
   }
 }
