@@ -9,9 +9,12 @@ const nifty50_1 = __importDefault(require("./src/routes/nifty50"));
 const indice_1 = __importDefault(require("./src/routes/indice"));
 const stock_1 = __importDefault(require("./src/routes/stock"));
 const option_1 = __importDefault(require("./src/routes/option")); // Added option router import
+const cors_1 = __importDefault(require("cors"));
 // Load environment variables
 dotenv_1.default.config();
 const app = (0, express_1.default)();
+// Enable CORS for all origins (easiest for local dev)
+app.use((0, cors_1.default)());
 const port = process.env.PORT || 3000;
 // Middleware
 app.use(express_1.default.json());

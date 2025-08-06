@@ -5,12 +5,14 @@ import nifty50Router from "./src/routes/nifty50";
 import indiceRouter from "./src/routes/indice";
 import stockRouter from "./src/routes/stock";
 import optionRouter from "./src/routes/option"; // Added option router import
+import cors from "cors";
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
-
+// Enable CORS for all origins (easiest for local dev)
+app.use(cors());
 const port = process.env.PORT || 3000;
 
 // Middleware
