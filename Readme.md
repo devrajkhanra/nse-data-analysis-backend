@@ -1,5 +1,5 @@
 NSE Data Backend API
-A TypeScript Node.js Express backend for reading, processing, and serving NSE market data files locally stored in CSV format. Supports broad market data, indices, stocks, and option chains with powerful filtering and routing capabilities.
+A TypeScript Node.js Express backend for reading, processing, and serving NSE market data files stored locally as daily CSVs. Supports broad market data, indices, stocks, and option chains with day-over-day changes (deltas). Provides powerful filtering, querying, and delta analytics to empower premium option chain frontends.
 
 Table of Contents
 Project Overview
@@ -22,6 +22,8 @@ Stock Data
 
 Option Chain Data
 
+Option Chain Delta Features
+
 Usage Examples
 
 Error Handling
@@ -33,60 +35,61 @@ Development & Extensibility
 License
 
 Project Overview
-This backend service reads raw NSE market data stored locally as CSV files in a predefined folder structure (typically on the user's desktop), parses the data with robust error handling, and exposes RESTful APIs for client consumption.
+This backend reads daily NSE market data CSV files stored locally in a well-defined folder structure on the user’s Desktop.
 
-It supports:
+It exposes RESTful APIs for:
 
 Nifty 50 stock listing
 
-Indices data
+Multi-day indices and stock data queries
 
-Stock data filtered by Nifty symbols and EQ series
+Option chains filtered by symbol, expiry, and date(s)
 
-Option chains for multiple symbols, expiries, with strike grouping
+Computation of day-over-day open interest and premium changes (deltas)
 
-Filtering by dates and symbols for flexible querying
+Robust data reading with error handling, normalization, and skipping malformed footer rows.
 
-Lightweight and modular TypeScript code for maintainability
+This design enables premium option chain dashboards to visualize market activity and analyze position buildups or unwinding over user-defined trading days.
 
 Features
-CSV Data Readers with header normalization, whitespace trimming, and footer comment skipping
+Reads daily CSV files named with dates (DDMMYYYY), including option files named opDDMMYYYY.csv.
 
-Supports reading option CSV files named like opDDMMYYYY.csv
+Supports filtering by multiple dates for indices, stocks, and option chains.
 
-API endpoints supporting filtering by date(s), symbol, expiry
+Deltas (day-to-day changes) in option chain data (open interest, premium) computed on backend.
 
-Option chain construction grouping calls (CE) and puts (PE) per strike price
+API endpoint to list all available option data dates for UI date pickers.
 
-Graceful error handling and warning logging for corrupt or missing files
+Graceful handling of corrupted or missing files with warnings.
 
-CORS support for cross-origin frontend consumption
+Supports filtering by symbol and expiry consistently.
 
-Modular Express route files (nifty50.ts, indice.ts, stock.ts, option.ts)
+Enables cross-origin frontend apps via CORS middleware.
 
-Typed data models with TypeScript interfaces
+Modular, typed TypeScript codebase with reusable helpers.
 
-Ready integration with modern React frontend or other clients
+Robust API design allows flexible queries with detailed error messages.
 
 Folder Structure
 text
 project-root/
 ├── src/
 │ ├── routes/
-│ │ ├── nifty50.ts # Nifty 50 API routes
-│ │ ├── indice.ts # Indices API routes
-│ │ ├── stock.ts # Stock API routes
-│ │ ├── option.ts # Option chain API routes
+│ │ ├── nifty50.ts # Nifty 50 company routes
+│ │ ├── indice.ts # Indices data routes
+│ │ ├── stock.ts # Stock data routes
+│ │ ├── option.ts # Option chain routes with delta support
 │ ├── utils/
-│ │ ├── optionReader.ts # CSV reader utility for option chain
-│ │ ├── stockReader.ts # CSV reader utility for stock data
-│ │ ├── indiceReader.ts # CSV reader utility for indice data
-│ │ ├── nifty50Reader.ts # CSV reader utility for nifty 50 list
-│ │ └── directoryHelper.ts # Helper for directory & file checks
+│ │ ├── optionReader.ts # CSV reading utilities for options
+│ │ ├── stockReader.ts # CSV reading utilities for stocks
+│ │ ├── indiceReader.ts # CSV reading utilities for indices
+│ │ ├── nifty50Reader.ts # CSV reading for Nifty 50 list
+│ │ └── directoryHelper.ts # Directory and file structure validation helpers
 │ ├── helpers/
-│ │ └── optionChainBuilder.ts # Function to build option chains grouped by strike
-│ ├── types.ts # TypeScript interfaces for data models
-│ └── server.ts # Express app initialization and router mounting
+│ │ ├── optionChainBuilder.ts # Base option chain builder
+│ │ └── optionChainDeltas.ts # Delta builder utilities
+│ ├── types.ts # TypeScript interfaces and types
+│ └── server.ts # Express server setup and routing
 ├── package.json
 └── README.md
 Setup & Installation
@@ -94,70 +97,78 @@ Clone the repository:
 
 bash
 git clone <repo-url>
-cd project-root
+cd <project-root>
 Install dependencies:
 
 bash
 npm install
-Place your NSE data files on your Desktop:
+Ensure your daily NSE CSV files are placed in the expected folder structure on your Desktop as described below.
 
-The backend expects data files in a specific folder structure under the user's Desktop.
-
-Run the backend server:
+Build the TypeScript code (if applicable):
 
 bash
-npm run build # If using TypeScript build step
-npm start # or `node dist/server.js`
-The server will listen on http://localhost:3000 by default, configurable by environment variable PORT.
+npm run build
+Start the backend server:
+
+bash
+npm start
+The API server listens on http://localhost:3000 by default (can be configured via PORT env variable).
 
 Data Directory Structure
-Your data files should be organized as follows under your Desktop:
+The backend expects NSE market data CSV files organized like this on your Desktop:
 
 text
 ~/Desktop/NSE-Data/data/
-├── broad/ # Broad market data (Nifty 50 list etc)
-│ └── nifty50list.csv
-├── indice/ # Indices data CSV files (date-based)
-│ └── ind_close_all_01072025.csv, etc.
-├── stock/ # Stock data CSV files (date-based)
-│ └── sec_bhavdata_full_01072025.csv, etc.
-└── option/ # Option chain CSV files (date based)
-└── op01072025.csv, op02072025.csv, ...
-Note:
-The option files must be named in the pattern:
-opDDMMYYYY.csv (e.g., op02072025.csv) where DDMMYYYY is the date.
+├── broad/
+│ └── nifty50list.csv # Static Nifty 50 company list
+├── indice/
+│ └── ind_close_all_01072025.csv # Indices data by date
+├── stock/
+│ └── sec_bhavdata_full_01072025.csv # Stock data by date
+└── option/
+└── op01072025.csv # Option chain data by date (opDDMMYYYY.csv)
+Option files must strictly follow the opDDMMYYYY.csv naming, e.g., op02072025.csv.
+
+Expiry dates in option CSV rows are in DD-MM-YYYY format.
 
 API Endpoints
 Nifty 50 List
 GET /api/nifty50
-Returns the Nifty 50 companies list.
+Returns an array of Nifty 50 company objects.
 
 Indice Data
 GET /api/allIndice
-Returns all indice data parsed from available indice CSV files.
+Returns indice data from all files.
 
-GET /api/indice/by-dates?dates=01072025
-Returns indice data for specific dates (comma-separated supported).
+GET /api/indice/by-dates?dates=01072025[,02072025,...]
+Fetch indices for specific dates.
 
 GET /api/indice/by-dates-and-index?dates=01072025&index=NIFTY 50
-Returns indice data filtered by dates and index name.
+Filter indice data by dates and index name.
 
 Stock Data
-GET /api/stock/by-dates?dates=01072025
-Returns stock data filtered by Nifty 50 symbols and EQ series for given dates.
+GET /api/stock/by-dates?dates=01072025[,02072025,...]
+Stock data filtered by Nifty 50 symbols and EQ series.
 
 GET /api/stock/by-dates-and-symbol?dates=01072025&symbol=TCS
-Returns stock data filtered by dates and a single symbol.
+Stock data for a specific symbol on given dates.
 
 Option Chain Data
-GET /api/option/chain?symbol=BANKNIFTY&expiry=31/07/2025
-Returns option chain data grouped by strike for the symbol and expiry.
+GET /api/option/chain?symbol=BANKNIFTY&expiry=31-07-2025&dates=02072025&previousDate=01072025
+Option chain for symbol & expiry on given date(s) with previous date delta comparison (optional).
 
-GET /api/option/chain?symbol=BANKNIFTY&expiry=31/07/2025&dates=01072025,02072025
-Returns option chain data filtered to specified option CSV file dates (optional).
+GET /api/option/available-dates
+Returns all option CSV file dates (DDMMYYYY) available.
 
 GET /api/option/test
-Returns available unique symbol-expiry combos, distinct symbols, expiries, and sample rows to help clients learn what data is available.
+Returns unique symbol-expiry combos, symbols, expiries, and sample option rows. Useful for UI initialization.
+
+Option Chain Delta Features
+Pass previousDate (single DDMMYYYY) alongside dates to /api/option/chain to get day-over-day deltas in open interest and premium for both CE and PE legs.
+
+Helpful for frontends to detect buildups, unwinding, and significant market activity.
+
+Deltas computed on backend by joining consecutive dates' data on symbol+expiry+strike+option type.
 
 Usage Examples
 bash
@@ -166,7 +177,7 @@ bash
 
 curl http://localhost:3000/api/nifty50
 
-# Get indice data for July 1, 2025
+# Get indices data for July 1, 2025
 
 curl "http://localhost:3000/api/indice/by-dates?dates=01072025"
 
@@ -174,53 +185,58 @@ curl "http://localhost:3000/api/indice/by-dates?dates=01072025"
 
 curl "http://localhost:3000/api/stock/by-dates-and-symbol?dates=01072025&symbol=TCS"
 
-# Get option chain for BANKNIFTY on expiry 31-07-2025 for all date files
+# Get option chain for BANKNIFTY on expiry July 31, 2025 (all files)
 
-curl "http://localhost:3000/api/option/chain?symbol=BANKNIFTY&expiry=31-07-2025"
+curl "http://localhost:3000/api/option/chain?symbol=BANKNIFTY&expiry=31/07/2025"
 
-# Get option chain for BANKNIFTY on expiry 31-07-2025 for specific option date files
+# Get option chain for BANKNIFTY on expiry July 31, 2025 for specific date with delta to previous day
 
-curl "http://localhost:3000/api/option/chain?symbol=BANKNIFTY&expiry=31-07-2025&dates=01072025,02072025"
+curl "http://localhost:3000/api/option/chain?symbol=BANKNIFTY&expiry=31/07/2025&dates=02072025&previousDate=01072025"
 
-# Get available option symbols and expiries for frontend usage
+# List all available option file dates
+
+curl http://localhost:3000/api/option/available-dates
+
+# Get available symbol-expiry combos
 
 curl http://localhost:3000/api/option/test
 Error Handling
-The backend gracefully logs warnings if any CSV file is missing or has corrupted/malformed rows.
+Returns 400 for invalid or missing query parameters.
 
-If no valid data is found, API endpoints return appropriate 4xx or 5xx responses with descriptive error messages.
+Returns 404 if no data found for given filters.
 
-Input validation on query parameters (dates, symbols, expiry) is strict; date format expected is DDMMYYYY for files and DD-MM-YYYY for expiry strings.
+Returns 500 if file read, parse, or internal errors occur.
 
-Footer comment lines in CSV files (starting with \*) are ignored automatically.
+Logs warnings for missing or malformed CSV files but continues processing other files.
+
+Footer/comment lines in CSVs beginning with \* are ignored gracefully.
 
 CORS Configuration
-To support frontend client requests (e.g., React app on a different port), CORS is enabled in the Express server.
+CORS enabled by default to support requests from local frontend dev servers (e.g., on port 5173).
 
-Backend uses the cors middleware allowing specified origins or all for development.
-
-If needed, you can configure allowed origins in server.ts:
+In server.ts:
 
 typescript
 import cors from "cors";
+app.use(cors());
+For production, restrict CORS origins as needed.
 
-app.use(cors({
-origin: "http://localhost:5173", // React dev server origin
-}));
 Development & Extensibility
-Add new CSV parsers for more NSE datasets or features.
+Add new NSE data sources easily with new CSV readers.
 
-Extend API to support POST requests or batch queries.
+Extend frontend filtering or analytics with enriched backend responses.
 
-Implement caching mechanisms for faster repeated queries.
+Cache frequently requested data or implement partial loads.
 
-Enhance authentication/authorization if exposed beyond local use.
+Add authentication for secure use.
 
-Integrate with frontend React/Next.js apps (examples provided).
+Add WebSocket or SSE endpoints later if live feeds become available.
 
 License
-MIT License - Feel free to use, modify, and distribute!
+MIT License — feel free to use, modify, and distribute.
 
-If you have questions or want help extending the project, please open an issue or contact the maintainer.
+For questions, issues, or contributions, please open an issue or pull request on the repository.
 
-Happy coding! 🚀
+Happy trading and data analyzing! 🚀
+
+End of README

@@ -1,21 +1,15 @@
 "use strict";
-// src/helpers/optionChainBuilder.ts
+// import {
+//   OptionRow,
+//   OptionChainWithDeltas,
+//   OptionChainLegsWithDeltas,
+//   OptionRowWithDeltas,
+// } from "../types";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildOptionChainForSymbolAndExpiry = void 0;
-/**
- * Build an option chain for a specific symbol and expiry date.
- *
- * @param rows - Array of all option rows
- * @param symbol - Symbol to filter, e.g., BANKNIFTY
- * @param expiry - Expiry date string matching that in data, e.g., "31-07-2025"
- * @returns OptionChain or null if not found
- */
 function buildOptionChainForSymbolAndExpiry(rows, symbol, expiry) {
-    // Normalize inputs for matching (case insensitive, trimmed)
-    const symbolNorm = symbol.trim().toUpperCase();
-    const expiryNorm = expiry.trim();
-    const filtered = rows.filter((row) => row.symbol.trim().toUpperCase() === symbolNorm &&
-        row.expDate.trim() === expiryNorm);
+    const filtered = rows.filter((row) => row.symbol.trim().toUpperCase() === symbol.trim().toUpperCase() &&
+        row.expDate.trim() === expiry.trim());
     if (!filtered.length)
         return null;
     const instrument = filtered[0].instrument;
@@ -26,18 +20,16 @@ function buildOptionChainForSymbolAndExpiry(rows, symbol, expiry) {
             legs = { strPrice: row.strPrice };
             strikesMap.set(row.strPrice, legs);
         }
-        if (row.optType === "CE") {
+        if (row.optType === "CE")
             legs.CE = row;
-        }
-        else if (row.optType === "PE") {
+        else if (row.optType === "PE")
             legs.PE = row;
-        }
     }
     const strikes = Array.from(strikesMap.values()).sort((a, b) => a.strPrice - b.strPrice);
     return {
         instrument,
-        symbol: symbolNorm,
-        expDate: expiryNorm,
+        symbol: symbol.trim(),
+        expDate: expiry.trim(),
         strikes,
     };
 }

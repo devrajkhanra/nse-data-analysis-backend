@@ -1,4 +1,5 @@
 // src/types.ts
+
 export interface Nifty50Company {
   companyName: string;
   industry: string;
@@ -44,7 +45,7 @@ export interface SecurityData {
 export interface OptionRow {
   instrument: string; // e.g., "OPTIDX"
   symbol: string; // e.g., "BANKNIFTY"
-  expDate: string; // e.g., "2025-07-31"
+  expDate: string; // e.g., "31-07-2025"
   strPrice: number; // Strike Price
   optType: string; // "CE" or "PE"
   openPrice: number;
@@ -59,16 +60,38 @@ export interface OptionRow {
   prVal: number;
 }
 
-// Option chain grouped by symbol+expiry ("legs")
+// Grouped option chain leg without delta info
 export interface OptionChainLegs {
   strPrice: number;
   CE?: OptionRow;
   PE?: OptionRow;
 }
 
+// Base option chain without deltas
 export interface OptionChain {
-  instrument: string; // "OPTIDX"
-  symbol: string; // "BANKNIFTY"
-  expDate: string; // "2025-07-31"
+  instrument: string;
+  symbol: string;
+  expDate: string;
   strikes: OptionChainLegs[];
+}
+
+// Option row extended with deltas
+export interface OptionRowWithDeltas extends OptionRow {
+  deltaOI?: number; // Change in OI vs previous day
+  deltaPremium?: number; // Change in closePrice vs previous day
+}
+
+// Option chain leg with delta-enhanced option rows
+export interface OptionChainLegsWithDeltas {
+  strPrice: number;
+  CE?: OptionRowWithDeltas;
+  PE?: OptionRowWithDeltas;
+}
+
+// Option chain with deltas
+export interface OptionChainWithDeltas {
+  instrument: string;
+  symbol: string;
+  expDate: string;
+  strikes: OptionChainLegsWithDeltas[];
 }
