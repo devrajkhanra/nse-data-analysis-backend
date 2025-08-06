@@ -14,6 +14,7 @@ export async function readNifty50List(): Promise<Nifty50Company[]> {
   const dataPath = path.join(
     os.homedir(),
     "Desktop",
+    "NSE-Data",
     "data",
     "broad",
     "nifty50list.csv"

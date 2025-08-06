@@ -45,7 +45,7 @@ const csv_parse_1 = require("csv-parse");
  */
 function readNifty50List() {
     return __awaiter(this, void 0, void 0, function* () {
-        const dataPath = path.join(os.homedir(), "Desktop", "data", "broad", "nifty50list.csv");
+        const dataPath = path.join(os.homedir(), "Desktop", "NSE-Data", "data", "broad", "nifty50list.csv");
         try {
             // Ensure the file exists
             yield fsPromises.access(dataPath);

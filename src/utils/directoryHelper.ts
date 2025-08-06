@@ -20,7 +20,8 @@ interface DirectoryStructure {
  */
 export async function readAndEnsureDataDirectory(): Promise<DirectoryStructure> {
   const desktopPath = path.join(os.homedir(), "Desktop");
-  const dataPath = path.join(desktopPath, "data");
+  const nseDataPath = path.join(desktopPath, "NSE-Data");
+  const dataPath = path.join(nseDataPath, "data");
   const requiredFolders = ["broad", "indice", "stock", "option"];
   const expectedFiles: { [key: string]: string[] } = {
     broad: ["nifty50list.csv"], // Static file in broad

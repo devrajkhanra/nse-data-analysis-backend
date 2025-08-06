@@ -44,7 +44,8 @@ const os = __importStar(require("os"));
 function readAndEnsureDataDirectory() {
     return __awaiter(this, void 0, void 0, function* () {
         const desktopPath = path.join(os.homedir(), "Desktop");
-        const dataPath = path.join(desktopPath, "data");
+        const nseDataPath = path.join(desktopPath, "NSE-Data");
+        const dataPath = path.join(nseDataPath, "data");
         const requiredFolders = ["broad", "indice", "stock", "option"];
         const expectedFiles = {
             broad: ["nifty50list.csv"],

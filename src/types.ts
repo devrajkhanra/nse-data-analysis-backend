@@ -41,12 +41,12 @@ export interface SecurityData {
   delivPer: number | null;
 }
 
-export interface OptionsData {
-  instrument: string;
-  symbol: string;
-  expDate: string;
-  strPrice: number;
-  optType: string;
+export interface OptionRow {
+  instrument: string; // e.g., "OPTIDX"
+  symbol: string; // e.g., "BANKNIFTY"
+  expDate: string; // e.g., "2025-07-31"
+  strPrice: number; // Strike Price
+  optType: string; // "CE" or "PE"
   openPrice: number;
   hiPrice: number;
   loPrice: number;
@@ -57,4 +57,18 @@ export interface OptionsData {
   noOfTrade: number;
   notionVal: number;
   prVal: number;
+}
+
+// Option chain grouped by symbol+expiry ("legs")
+export interface OptionChainLegs {
+  strPrice: number;
+  CE?: OptionRow;
+  PE?: OptionRow;
+}
+
+export interface OptionChain {
+  instrument: string; // "OPTIDX"
+  symbol: string; // "BANKNIFTY"
+  expDate: string; // "2025-07-31"
+  strikes: OptionChainLegs[];
 }

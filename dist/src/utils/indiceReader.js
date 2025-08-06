@@ -38,320 +38,156 @@ const fsPromises = __importStar(require("fs/promises"));
 const path = __importStar(require("path"));
 const os = __importStar(require("os"));
 const csv_parse_1 = require("csv-parse");
-/**
- * Reads all CSV files from ~/Desktop/data/indice and returns an array of IndexData objects.
- * @returns Promise resolving to an array of IndexData objects from all files
- * @throws Error if the folder is missing, empty, or files cannot be parsed
- */
+const INDICE_ROOT = path.join(os.homedir(), "Desktop", "NSE-Data", "data", "indice");
+// Utility: Normalize headers with fallback keys
+function normalizeHeaders(row) {
+    const lower = Object.keys(row).reduce((acc, key) => {
+        acc[key.toLowerCase()] = key;
+        return acc;
+    }, {});
+    return {
+        indexName: lower["index_name"] || lower["index name"],
+        indexDate: lower["index_date"] || lower["index date"],
+        openValue: lower["open_index_value"] || lower["open index value"],
+        highValue: lower["high_index_value"] || lower["high index value"],
+        lowValue: lower["low_index_value"] || lower["low index value"],
+        closeValue: lower["closing_index_value"] || lower["closing index value"],
+        pointsChange: lower["points_change"] || lower["points change"],
+        changePercent: lower["change_percent"] || lower["change percent"],
+        volume: lower["volume"],
+        turnoverRsCr: lower["turnover_rscr"] || lower["turnover rscr"] || lower["turnover"],
+        pe: lower["pe"] || lower["p_e"] || lower["p/e"],
+        pb: lower["pb"] || lower["p_b"] || lower["p/b"],
+        divYield: lower["div_yield"] || lower["div yield"],
+    };
+}
+// Utility: Parse a CSV file for IndexData
+function parseIndexFile(filePath, filterIndexName) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return new Promise((resolve, reject) => {
+            const results = [];
+            fs.createReadStream(filePath)
+                .pipe((0, csv_parse_1.parse)({ columns: true, skip_empty_lines: true }))
+                .on("data", (row) => {
+                var _a, _b;
+                const h = normalizeHeaders(row);
+                // Required headers check
+                if (!h.indexName || !h.indexDate || !h.closeValue)
+                    return;
+                // If filter is specified, restrict only to that index name
+                if (filterIndexName &&
+                    String(row[h.indexName]).trim().toLowerCase() !==
+                        filterIndexName.toLowerCase()) {
+                    return;
+                }
+                results.push({
+                    indexName: (_a = row[h.indexName]) === null || _a === void 0 ? void 0 : _a.trim(),
+                    indexDate: (_b = row[h.indexDate]) === null || _b === void 0 ? void 0 : _b.trim(),
+                    openIndexValue: row[h.openValue]
+                        ? parseFloat(row[h.openValue]) || null
+                        : null,
+                    highIndexValue: row[h.highValue]
+                        ? parseFloat(row[h.highValue]) || null
+                        : null,
+                    lowIndexValue: row[h.lowValue]
+                        ? parseFloat(row[h.lowValue]) || null
+                        : null,
+                    closingIndexValue: parseFloat(row[h.closeValue]) || 0,
+                    pointsChange: row[h.pointsChange]
+                        ? parseFloat(row[h.pointsChange]) || null
+                        : null,
+                    changePercent: row[h.changePercent]
+                        ? parseFloat(row[h.changePercent]) || null
+                        : null,
+                    volume: row[h.volume] ? parseInt(row[h.volume], 10) || null : null,
+                    turnoverRsCr: row[h.turnoverRsCr]
+                        ? parseFloat(row[h.turnoverRsCr]) || null
+                        : null,
+                    pe: row[h.pe] ? parseFloat(row[h.pe]) || null : null,
+                    pb: row[h.pb] ? parseFloat(row[h.pb]) || null : null,
+                    divYield: row[h.divYield]
+                        ? parseFloat(row[h.divYield]) || null
+                        : null,
+                });
+            })
+                .on("end", () => resolve(results))
+                .on("error", (err) => reject(new Error(`Failed to parse ${path.basename(filePath)}: ${err.message}`)));
+        });
+    });
+}
+// 1. All files
 function readAllIndiceFiles() {
     return __awaiter(this, void 0, void 0, function* () {
-        const indicePath = path.join(os.homedir(), "Desktop", "data", "indice");
-        try {
-            // Ensure the folder exists
-            yield fsPromises.access(indicePath);
-            // Get all CSV files in the indice folder
-            const files = yield fsPromises.readdir(indicePath);
-            const csvFiles = files.filter((file) => file.endsWith(".csv"));
-            if (csvFiles.length === 0) {
-                throw new Error("No CSV files found in ~/Desktop/data/indice");
-            }
-            const results = [];
-            // Process each CSV file
-            for (const file of csvFiles) {
-                const filePath = path.join(indicePath, file);
-                yield new Promise((resolve, reject) => {
-                    fs.createReadStream(filePath)
-                        .pipe((0, csv_parse_1.parse)({ columns: true, skip_empty_lines: true }))
-                        .on("data", (row) => {
-                        var _a, _b;
-                        // Normalize header names
-                        const headers = Object.keys(row).reduce((acc, key) => {
-                            acc[key.toLowerCase()] = key;
-                            return acc;
-                        }, {});
-                        const indexNameKey = headers["index_name"] || headers["index name"];
-                        const indexDateKey = headers["index_date"] || headers["index date"];
-                        const openIndexValueKey = headers["open_index_value"] || headers["open index value"];
-                        const highIndexValueKey = headers["high_index_value"] || headers["high index value"];
-                        const lowIndexValueKey = headers["low_index_value"] || headers["low index value"];
-                        const closingIndexValueKey = headers["closing_index_value"] || headers["closing index value"];
-                        const pointsChangeKey = headers["points_change"] || headers["points change"];
-                        const changePercentKey = headers["change_percent"] || headers["change percent"];
-                        const volumeKey = headers["volume"];
-                        const turnoverRsCrKey = headers["turnover_rscr"] ||
-                            headers["turnover rscr"] ||
-                            headers["turnover"];
-                        const peKey = headers["pe"] || headers["p_e"] || headers["p/e"];
-                        const pbKey = headers["pb"] || headers["p_b"] || headers["p/b"];
-                        const divYieldKey = headers["div_yield"] || headers["div yield"];
-                        if (!indexNameKey || !indexDateKey || !closingIndexValueKey) {
-                            reject(new Error(`Invalid headers in ${file}: INDEX_NAME, INDEX_DATE, CLOSING_INDEX_VALUE required`));
-                            return;
-                        }
-                        results.push({
-                            indexName: (_a = row[indexNameKey]) === null || _a === void 0 ? void 0 : _a.trim(),
-                            indexDate: (_b = row[indexDateKey]) === null || _b === void 0 ? void 0 : _b.trim(),
-                            openIndexValue: row[openIndexValueKey]
-                                ? parseFloat(row[openIndexValueKey]) || null
-                                : null,
-                            highIndexValue: row[highIndexValueKey]
-                                ? parseFloat(row[highIndexValueKey]) || null
-                                : null,
-                            lowIndexValue: row[lowIndexValueKey]
-                                ? parseFloat(row[lowIndexValueKey]) || null
-                                : null,
-                            closingIndexValue: parseFloat(row[closingIndexValueKey]) || 0,
-                            pointsChange: row[pointsChangeKey]
-                                ? parseFloat(row[pointsChangeKey]) || null
-                                : null,
-                            changePercent: row[changePercentKey]
-                                ? parseFloat(row[changePercentKey]) || null
-                                : null,
-                            volume: row[volumeKey]
-                                ? parseInt(row[volumeKey], 10) || null
-                                : null,
-                            turnoverRsCr: row[turnoverRsCrKey]
-                                ? parseFloat(row[turnoverRsCrKey]) || null
-                                : null,
-                            pe: row[peKey] ? parseFloat(row[peKey]) || null : null,
-                            pb: row[pbKey] ? parseFloat(row[pbKey]) || null : null,
-                            divYield: row[divYieldKey]
-                                ? parseFloat(row[divYieldKey]) || null
-                                : null,
-                        });
-                    })
-                        .on("end", () => resolve())
-                        .on("error", (err) => reject(new Error(`Failed to parse ${file}: ${err.message}`)));
-                });
-            }
-            if (results.length === 0) {
-                throw new Error("No valid data found in indice CSV files");
-            }
-            return results;
+        yield fsPromises.access(INDICE_ROOT);
+        const files = yield fsPromises.readdir(INDICE_ROOT);
+        const csvFiles = files.filter((f) => f.endsWith(".csv"));
+        if (!csvFiles.length)
+            throw new Error("No CSV files found in ~/Desktop/NSE-Data/data/indice");
+        const allResults = [];
+        for (const file of csvFiles) {
+            const res = yield parseIndexFile(path.join(INDICE_ROOT, file));
+            allResults.push(...res);
         }
-        catch (error) {
-            throw new Error(`Failed to access or process ~/Desktop/data/indice: ${error}`);
-        }
+        if (!allResults.length)
+            throw new Error("No valid data found in indice CSV files.");
+        return allResults;
     });
 }
 exports.readAllIndiceFiles = readAllIndiceFiles;
-/**
- * Reads specific CSV files from ~/Desktop/data/indice for the given date(s) and returns an array of IndexData objects.
- * @param dates A single date or array of dates in DDMMYYYY format (e.g., "01072025" or ["01072025", "02072025"])
- * @returns Promise resolving to an array of IndexData objects from the specified files
- * @throws Error if no files are found, files cannot be parsed, or headers are invalid
- */
+// 2. By dates (accepts string or array)
 function readIndiceFilesByDates(dates) {
     return __awaiter(this, void 0, void 0, function* () {
-        const indicePath = path.join(os.homedir(), "Desktop", "data", "indice");
-        const dateArray = Array.isArray(dates) ? dates : [dates];
-        // Validate date format (DDMMYYYY)
-        for (const date of dateArray) {
-            if (!/^\d{2}\d{2}\d{4}$/.test(date)) {
-                throw new Error(`Invalid date format: ${date}. Expected DDMMYYYY (e.g., 01072025)`);
+        const arr = Array.isArray(dates) ? dates : [dates];
+        for (const date of arr) {
+            if (!/^\d{2}\d{2}\d{4}$/.test(date))
+                throw new Error(`Invalid date format: ${date}`);
+        }
+        yield fsPromises.access(INDICE_ROOT);
+        let allResults = [];
+        for (const date of arr) {
+            const file = path.join(INDICE_ROOT, `ind_close_all_${date}.csv`);
+            try {
+                yield fsPromises.access(file);
+                const res = yield parseIndexFile(file);
+                allResults.push(...res);
+            }
+            catch (_a) {
+                /* skip missing files */
             }
         }
-        try {
-            // Ensure the folder exists
-            yield fsPromises.access(indicePath);
-            const results = [];
-            // Process each specified date
-            for (const date of dateArray) {
-                const file = `ind_close_all_${date}.csv`;
-                const filePath = path.join(indicePath, file);
-                try {
-                    yield fsPromises.access(filePath);
-                }
-                catch (_a) {
-                    continue; // Skip missing files
-                }
-                yield new Promise((resolve, reject) => {
-                    fs.createReadStream(filePath)
-                        .pipe((0, csv_parse_1.parse)({ columns: true, skip_empty_lines: true }))
-                        .on("data", (row) => {
-                        var _a, _b;
-                        // Normalize header names
-                        const headers = Object.keys(row).reduce((acc, key) => {
-                            acc[key.toLowerCase()] = key;
-                            return acc;
-                        }, {});
-                        const indexNameKey = headers["index_name"] || headers["index name"];
-                        const indexDateKey = headers["index_date"] || headers["index date"];
-                        const openIndexValueKey = headers["open_index_value"] || headers["open index value"];
-                        const highIndexValueKey = headers["high_index_value"] || headers["high index value"];
-                        const lowIndexValueKey = headers["low_index_value"] || headers["low index value"];
-                        const closingIndexValueKey = headers["closing_index_value"] || headers["closing index value"];
-                        const pointsChangeKey = headers["points_change"] || headers["points change"];
-                        const changePercentKey = headers["change_percent"] || headers["change percent"];
-                        const volumeKey = headers["volume"];
-                        const turnoverRsCrKey = headers["turnover_rscr"] ||
-                            headers["turnover rscr"] ||
-                            headers["turnover"];
-                        const peKey = headers["pe"] || headers["p_e"] || headers["p/e"];
-                        const pbKey = headers["pb"] || headers["p_b"] || headers["p/b"];
-                        const divYieldKey = headers["div_yield"] || headers["div yield"];
-                        if (!indexNameKey || !indexDateKey || !closingIndexValueKey) {
-                            reject(new Error(`Invalid headers in ${file}: INDEX_NAME, INDEX_DATE, CLOSING_INDEX_VALUE required`));
-                            return;
-                        }
-                        results.push({
-                            indexName: (_a = row[indexNameKey]) === null || _a === void 0 ? void 0 : _a.trim(),
-                            indexDate: (_b = row[indexDateKey]) === null || _b === void 0 ? void 0 : _b.trim(),
-                            openIndexValue: row[openIndexValueKey]
-                                ? parseFloat(row[openIndexValueKey]) || null
-                                : null,
-                            highIndexValue: row[highIndexValueKey]
-                                ? parseFloat(row[highIndexValueKey]) || null
-                                : null,
-                            lowIndexValue: row[lowIndexValueKey]
-                                ? parseFloat(row[lowIndexValueKey]) || null
-                                : null,
-                            closingIndexValue: parseFloat(row[closingIndexValueKey]) || 0,
-                            pointsChange: row[pointsChangeKey]
-                                ? parseFloat(row[pointsChangeKey]) || null
-                                : null,
-                            changePercent: row[changePercentKey]
-                                ? parseFloat(row[changePercentKey]) || null
-                                : null,
-                            volume: row[volumeKey]
-                                ? parseInt(row[volumeKey], 10) || null
-                                : null,
-                            turnoverRsCr: row[turnoverRsCrKey]
-                                ? parseFloat(row[turnoverRsCrKey]) || null
-                                : null,
-                            pe: row[peKey] ? parseFloat(row[peKey]) || null : null,
-                            pb: row[pbKey] ? parseFloat(row[pbKey]) || null : null,
-                            divYield: row[divYieldKey]
-                                ? parseFloat(row[divYieldKey]) || null
-                                : null,
-                        });
-                    })
-                        .on("end", () => resolve())
-                        .on("error", (err) => reject(new Error(`Failed to parse ${file}: ${err.message}`)));
-                });
-            }
-            if (results.length === 0) {
-                throw new Error(`No valid data found for the specified dates: ${dateArray.join(", ")}`);
-            }
-            return results;
-        }
-        catch (error) {
-            throw new Error(`Failed to access or process ~/Desktop/data/indice: ${error}`);
-        }
+        if (!allResults.length)
+            throw new Error("No valid data found for the specified dates: " + arr.join(", "));
+        return allResults;
     });
 }
 exports.readIndiceFilesByDates = readIndiceFilesByDates;
-/**
- * Reads specific CSV files from ~/Desktop/data/indice for the given date(s) and index name, returning matching IndexData objects.
- * @param dates A single date or array of dates in DDMMYYYY format (e.g., "01072025" or ["01072025", "02072025"])
- * @param indexName The index name to filter by (e.g., "NIFTY 50")
- * @returns Promise resolving to an array of IndexData objects matching the index name from the specified files
- * @throws Error if no files are found, files cannot be parsed, headers are invalid, or no matching data is found
- */
+// 3. By dates and index name
 function readIndiceFilesByDatesAndIndex(dates, indexName) {
     return __awaiter(this, void 0, void 0, function* () {
-        const indicePath = path.join(os.homedir(), "Desktop", "data", "indice");
-        const dateArray = Array.isArray(dates) ? dates : [dates];
-        // Validate inputs
-        if (!indexName || typeof indexName !== "string") {
+        if (!indexName || typeof indexName !== "string")
             throw new Error("Index name must be a non-empty string");
+        const arr = Array.isArray(dates) ? dates : [dates];
+        for (const date of arr) {
+            if (!/^\d{2}\d{2}\d{4}$/.test(date))
+                throw new Error(`Invalid date format: ${date}`);
         }
-        for (const date of dateArray) {
-            if (!/^\d{2}\d{2}\d{4}$/.test(date)) {
-                throw new Error(`Invalid date format: ${date}. Expected DDMMYYYY (e.g., 01072025)`);
+        yield fsPromises.access(INDICE_ROOT);
+        let allResults = [];
+        for (const date of arr) {
+            const file = path.join(INDICE_ROOT, `ind_close_all_${date}.csv`);
+            try {
+                yield fsPromises.access(file);
+                const res = yield parseIndexFile(file, indexName);
+                allResults.push(...res);
+            }
+            catch (_a) {
+                /* skip missing files */
             }
         }
-        try {
-            // Ensure the folder exists
-            yield fsPromises.access(indicePath);
-            const results = [];
-            // Process each specified date
-            for (const date of dateArray) {
-                const file = `ind_close_all_${date}.csv`;
-                const filePath = path.join(indicePath, file);
-                try {
-                    yield fsPromises.access(filePath);
-                }
-                catch (_a) {
-                    continue; // Skip missing files
-                }
-                yield new Promise((resolve, reject) => {
-                    fs.createReadStream(filePath)
-                        .pipe((0, csv_parse_1.parse)({ columns: true, skip_empty_lines: true }))
-                        .on("data", (row) => {
-                        var _a, _b, _c;
-                        // Normalize header names
-                        const headers = Object.keys(row).reduce((acc, key) => {
-                            acc[key.toLowerCase()] = key;
-                            return acc;
-                        }, {});
-                        const indexNameKey = headers["index_name"] || headers["index name"];
-                        const indexDateKey = headers["index_date"] || headers["index date"];
-                        const openIndexValueKey = headers["open_index_value"] || headers["open index value"];
-                        const highIndexValueKey = headers["high_index_value"] || headers["high index value"];
-                        const lowIndexValueKey = headers["low_index_value"] || headers["low index value"];
-                        const closingIndexValueKey = headers["closing_index_value"] || headers["closing index value"];
-                        const pointsChangeKey = headers["points_change"] || headers["points change"];
-                        const changePercentKey = headers["change_percent"] || headers["change percent"];
-                        const volumeKey = headers["volume"];
-                        const turnoverRsCrKey = headers["turnover_rscr"] ||
-                            headers["turnover rscr"] ||
-                            headers["turnover"];
-                        const peKey = headers["pe"] || headers["p_e"] || headers["p/e"];
-                        const pbKey = headers["pb"] || headers["p_b"] || headers["p/b"];
-                        const divYieldKey = headers["div_yield"] || headers["div yield"];
-                        if (!indexNameKey || !indexDateKey || !closingIndexValueKey) {
-                            reject(new Error(`Invalid headers in ${file}: INDEX_NAME, INDEX_DATE, CLOSING_INDEX_VALUE required`));
-                            return;
-                        }
-                        // Filter by indexName (case-insensitive)
-                        if (((_a = row[indexNameKey]) === null || _a === void 0 ? void 0 : _a.trim().toLowerCase()) ===
-                            indexName.toLowerCase()) {
-                            results.push({
-                                indexName: (_b = row[indexNameKey]) === null || _b === void 0 ? void 0 : _b.trim(),
-                                indexDate: (_c = row[indexDateKey]) === null || _c === void 0 ? void 0 : _c.trim(),
-                                openIndexValue: row[openIndexValueKey]
-                                    ? parseFloat(row[openIndexValueKey]) || null
-                                    : null,
-                                highIndexValue: row[highIndexValueKey]
-                                    ? parseFloat(row[highIndexValueKey]) || null
-                                    : null,
-                                lowIndexValue: row[lowIndexValueKey]
-                                    ? parseFloat(row[lowIndexValueKey]) || null
-                                    : null,
-                                closingIndexValue: parseFloat(row[closingIndexValueKey]) || 0,
-                                pointsChange: row[pointsChangeKey]
-                                    ? parseFloat(row[pointsChangeKey]) || null
-                                    : null,
-                                changePercent: row[changePercentKey]
-                                    ? parseFloat(row[changePercentKey]) || null
-                                    : null,
-                                volume: row[volumeKey]
-                                    ? parseInt(row[volumeKey], 10) || null
-                                    : null,
-                                turnoverRsCr: row[turnoverRsCrKey]
-                                    ? parseFloat(row[turnoverRsCrKey]) || null
-                                    : null,
-                                pe: row[peKey] ? parseFloat(row[peKey]) || null : null,
-                                pb: row[pbKey] ? parseFloat(row[pbKey]) || null : null,
-                                divYield: row[divYieldKey]
-                                    ? parseFloat(row[divYieldKey]) || null
-                                    : null,
-                            });
-                        }
-                    })
-                        .on("end", () => resolve())
-                        .on("error", (err) => reject(new Error(`Failed to parse ${file}: ${err.message}`)));
-                });
-            }
-            if (results.length === 0) {
-                throw new Error(`No data found for index "${indexName}" on dates: ${dateArray.join(", ")}`);
-            }
-            return results;
+        if (!allResults.length) {
+            throw new Error(`No data found for index "${indexName}" on dates: ${arr.join(", ")}`);
         }
-        catch (error) {
-            throw new Error(`Failed to access or process ~/Desktop/data/indice: ${error}`);
-        }
+        return allResults;
     });
 }
 exports.readIndiceFilesByDatesAndIndex = readIndiceFilesByDatesAndIndex;
